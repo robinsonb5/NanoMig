@@ -5,6 +5,7 @@
     <Version>5</Version>
     <Device name="GW2AR-18C" pn="GW2AR-LV18QN88C8/I7">gw2ar18c-000</Device>
     <FileList>
+        <File path="amigaclks.v" type="file.verilog" enable="1"/>
         <File path="fx68k/fx68k.sv" type="file.verilog" enable="1"/>
         <File path="fx68k/fx68kAlu.sv" type="file.verilog" enable="1"/>
         <File path="fx68k/uaddrPla.sv" type="file.verilog" enable="1"/>
@@ -69,6 +70,7 @@
         <File path="minimig-aga/paula_uart.v" type="file.verilog" enable="1"/>
         <File path="minimig-aga/userio.v" type="file.verilog" enable="1"/>
         <File path="minimig/Amber.v" type="file.verilog" enable="1"/>
+        <File path="misc/amiga_keymap.v" type="file.verilog" enable="1"/>
         <File path="misc/hid.v" type="file.verilog" enable="1"/>
         <File path="misc/mcu_spi.v" type="file.verilog" enable="1"/>
         <File path="misc/osd_u8g2.v" type="file.verilog" enable="1"/>
@@ -78,7 +80,6 @@
         <File path="misc/sysctrl.v" type="file.verilog" enable="1"/>
         <File path="misc/video_analyzer.v" type="file.verilog" enable="1"/>
         <File path="misc/ws2812.v" type="file.verilog" enable="1"/>
-        <File path="misc/amiga_keymap.v" type="file.verilog" enable="1"/>
         <File path="nanomig.v" type="file.verilog" enable="1"/>
         <File path="tang/nano20k/flash_dspi.v" type="file.verilog" enable="1"/>
         <File path="tang/nano20k/gowin_clkdiv/gowin_clkdiv.v" type="file.verilog" enable="1"/>
