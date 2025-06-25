@@ -86,25 +86,41 @@ assign leds_n = ~leds;
 
 wire clk_pixel_x5;   
 wire pll_lock;   
-pll_142m pll_hdmi (
-    .clkout(clk_pixel_x5),
-    .lock(pll_lock),
-    .clkin(clk)
+//pll_142m pll_hdmi (
+//    .clkout(clk_pixel_x5),
+//    .lock(pll_lock),
+//    .clkin(clk)
+//);
+
+//reg clk_71m;
+//always @(posedge clk_pixel_x5)
+//  if(!pll_lock) clk_71m <= 1'b0;
+//  else          clk_71m <= !clk_71m;
+
+//wire clk_pixel;
+//Gowin_CLKDIV clk_div_5 (
+//    .hclkin(clk_pixel_x5), // input hclkin
+//    .resetn(pll_lock),     // input resetn
+//    .clkout(clk_pixel)     // output clkout
+//);
+
+//wire	clk_28m = clk_pixel;
+
+wire clk_7;
+
+amigaclks amigaclks (
+	.clk_in(clk),
+	.clk_7m(clk_7), // Unused
+	.clk_28m(clk_28m),
+	.clk_85m(clk_71m),
+	.clk_sdram(O_sdram_clk),
+	.locked(pll_lock),
+	.vidmode(1'b1),
+	.clk_tmds(clk_pixel_x5),
+	.clk_pixel(clk_pixel),
+	.video_locked()
 );
 
-reg clk_71m;
-always @(posedge clk_pixel_x5)
-  if(!pll_lock) clk_71m <= 1'b0;
-  else          clk_71m <= !clk_71m;
-
-wire clk_pixel;
-Gowin_CLKDIV clk_div_5 (
-    .hclkin(clk_pixel_x5), // input hclkin
-    .resetn(pll_lock),     // input resetn
-    .clkout(clk_pixel)     // output clkout
-);
-
-wire	clk_28m = clk_pixel;
 wire	clk7_en;   
 wire	clk7n_en;   
 
@@ -555,7 +571,7 @@ wire [1:0]  sdram_be      = rom_done?ram_be:2'b00;
 wire		sdram_we      = rom_done?sdram_rw:flash_ram_write; 
    
 sdram sdram (
-  	.sd_clk     ( O_sdram_clk   ), // sd clock
+//  	.sd_clk     ( O_sdram_clk   ), // sd clock
 	.sd_cke     ( O_sdram_cke   ), // clock enable
 	.sd_data    ( IO_sdram_dq   ), // 32 bit bidirectional data bus
 	.sd_addr    ( O_sdram_addr  ), // 11 bit multiplexed address bus
