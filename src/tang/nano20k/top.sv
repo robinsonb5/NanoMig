@@ -467,8 +467,8 @@ wire           mem_ready = sdram_ready && flash_ready && pll_lock;
 reg            start_rom_copy;
 reg            mem_ready_D;
 
-// geneate a start_rom_copy signal once flash and SDRAM are initialized
-always @(posedge clk_28m or negedge pll_lock) begin
+// generate a start_rom_copy signal once flash and SDRAM are initialized
+always @(posedge clk_71m or negedge pll_lock) begin
    if(!pll_lock) begin
       start_rom_copy <= 1'b0;
       mem_ready_D <= 1'b0;
@@ -488,7 +488,7 @@ wire [15:0] flash_dout;
 reg [15:0]  flash_doutD;
 reg		    flash_cs;  
 reg [31:0]  word_count;
-reg [2:0]   state;
+reg [4:0]   state;
 wire        flash_data_strobe;
 wire        flash_busy;   
 
@@ -501,7 +501,7 @@ reg [21:0]  flash_ram_addr;
 reg         flash_ram_write;
 reg [5:0]   flash_cnt;  
 
-always @(posedge clk_28m or negedge mem_ready) begin
+always @(posedge clk_71m or negedge mem_ready) begin
     if(!mem_ready) begin
        flash_addr <= 22'h200000;          // 4MB flash offset (word address)
        flash_ram_addr <= { 4'hf, 18'h0 }; // write into 512k sdram segment used for kick rom
@@ -512,9 +512,9 @@ always @(posedge clk_28m or negedge mem_ready) begin
        flash_cs <= 1'b0;        
        flash_cnt <= 6'd0;
     end else begin
-        if((start_rom_copy || state == 7) && (word_count != 0)) begin
+        if((start_rom_copy || state == 23) && (word_count != 0)) begin
             flash_cs <= 1'b1;
-            flash_cnt <= 6'd15; // >= 30 @ 32MHz
+            flash_cnt <= 6'd45; // >= 30 @ 32MHz -- AMR, increase to 45 @ 85.5MHz
         end else begin
             if(flash_cnt != 0) flash_cnt <= flash_cnt - 6'd1;
             if(flash_busy)     flash_cs <= 1'b0;
@@ -539,9 +539,9 @@ always @(posedge clk_28m or negedge mem_ready) begin
 
         // advance ram write state
         if(state != 0)  state <= state + 3'd1;
-        if(state == 1)  flash_ram_write <= 1'b1;
-        if(state == 6)  flash_ram_write <= 1'b0;
-        if(state == 7)  flash_ram_addr <= flash_ram_addr + 22'd1;
+        if(state == 3)  flash_ram_write <= 1'b1;
+        if(state == 18)  flash_ram_write <= 1'b0;
+        if(state == 21)  flash_ram_addr <= flash_ram_addr + 22'd1;
     end
 end
 
