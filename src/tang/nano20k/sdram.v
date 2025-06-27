@@ -54,7 +54,7 @@ module sdram (
 assign sd_clk = ~clk;
 assign sd_cke = 1'b1;  
    
-localparam RASCAS_DELAY   = 3'd2;   // tRCD=15ns -> 2 cycle@64MHz
+localparam RASCAS_DELAY   = 3'd2;   // tRCD=15ns -> 2 cycle@85MHz
 localparam BURST_LENGTH   = 3'b000; // 000=1, 001=2, 010=4, 011=8
 localparam ACCESS_TYPE    = 1'b0;   // 0=sequential, 1=interleaved
 localparam CAS_LATENCY    = 3'd2;   // 2/3 allowed
@@ -72,7 +72,16 @@ localparam STATE_IDLE      = 3'd0;   // first state in cycle
 localparam STATE_CMD_CONT  = STATE_IDLE + RASCAS_DELAY; // command can be continued (== state 2)
 localparam STATE_READ      = STATE_CMD_CONT + CAS_LATENCY + 3'd1; // (== state 5)
 localparam STATE_LAST      = 3'd6;  // last state in cycle
-   
+
+// Cycle pattern:
+// 0 - STATE_IDLE - wait for 7MHz clock, perform RAS if CS is asserted
+// 1 -              (read)                   (write) 
+// 2 - perform CAS                           Drive bus
+// 3 - 
+// 4 -            - (chip launches data)
+// 5 - STATE_READ - latch data
+// 6 - STATE LAST - return to IDLE state
+
 // ---------------------------------------------------------------------
 // --------------------------- startup/reset ---------------------------
 // ---------------------------------------------------------------------
@@ -108,8 +117,8 @@ assign sd_we  = sd_cmd[0];
 // drive data to SDRAM on write
 assign sd_data = we ? { din, din } : 32'bzzzz_zzzz_zzzz_zzzz_zzzz_zzzz_zzzz_zzzz;
 
-localparam SYNCD = 1;
-   
+localparam SYNCD = 2;
+
 always @(posedge clk) begin
    reg [SYNCD:0] syncD;   
    sd_cmd <= CMD_NOP;  // default: idle
