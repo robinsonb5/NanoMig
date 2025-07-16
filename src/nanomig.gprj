@@ -19,6 +19,8 @@
         <File path="hdmi/serializer.sv" type="file.verilog" enable="1"/>
         <File path="hdmi/source_product_description_info_frame.sv" type="file.verilog" enable="1"/>
         <File path="hdmi/tmds_channel.sv" type="file.verilog" enable="1"/>
+        <File path="jcapture/gwjtag_wrapper.v" type="file.verilog" enable="1"/>
+        <File path="jcapture_fastram.v" type="file.verilog" enable="1"/>
         <File path="minimig-aga/agnus.v" type="file.verilog" enable="1"/>
         <File path="minimig-aga/agnus_audiodma.v" type="file.verilog" enable="1"/>
         <File path="minimig-aga/agnus_beamcounter.v" type="file.verilog" enable="1"/>
@@ -88,13 +90,16 @@
         <File path="tang/nano20k/gowin_rpll/pll_142m.v" type="file.verilog" enable="1"/>
         <File path="tang/nano20k/sdram.v" type="file.verilog" enable="1"/>
         <File path="tang/nano20k/top.sv" type="file.verilog" enable="1"/>
+        <File path="jcapture/debug_virtualjtag_gw2ar.vhd" type="file.vhdl" enable="1"/>
+        <File path="jcapture/jcapture.vhd" type="file.vhdl" enable="1"/>
+        <File path="jcapture/jcapture_pkg.vhd" type="file.vhdl" enable="1"/>
+        <File path="jcapture/vjtag_fifo.vhd" type="file.vhdl" enable="1"/>
         <File path="tg68k/TG68K.vhd" type="file.vhdl" enable="1"/>
         <File path="tg68k/TG68K_ALU.vhd" type="file.vhdl" enable="1"/>
         <File path="tg68k/TG68K_Pack.vhd" type="file.vhdl" enable="1"/>
         <File path="tg68k/TG68KdotC_Kernel.vhd" type="file.vhdl" enable="1"/>
         <File path="tang/nano20k/nanomig.cst" type="file.cst" enable="1"/>
         <File path="tang/nano20k/nanomig.sdc" type="file.sdc" enable="1"/>
-        <File path="nanomig.rao" type="file.gao" enable="0"/>
         <File path="fx68k/microrom.mem" type="file.other" enable="1"/>
         <File path="fx68k/nanorom.mem" type="file.other" enable="1"/>
         <File path="misc/amiga_xml.hex" type="file.other" enable="1"/>

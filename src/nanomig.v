@@ -5,7 +5,7 @@
 //   copper and other dma runs on hpos[0] == 1
 //   cpu runs in hpos[0] == 0
 // -> run cpu on unused hpos[0] == 1 for turbo
-
+`default_nettype wire
 module nanomig (
    input	 clk_sys,
    input	 reset,
@@ -58,7 +58,7 @@ module nanomig (
    input [8:0]	 sdc_byte_addr,
    input [7:0]	 sdc_byte_in_data,
    output [7:0]	 sdc_byte_out_data,
-		
+
    // (s)ram interface
    output [15:0] ram_data,    // sram data bus
    input [15:0]	 ramdata_in,  // sram data bus in
@@ -68,8 +68,37 @@ module nanomig (
    output	 _ram_bhe,    // sram upper byte select
    output	 _ram_ble,    // sram lower byte select
    output	 _ram_we,     // sram write enable
-   output	 _ram_oe      // sram output enable
+   output	 _ram_oe,     // sram output enable
+
+   output reg    fastram_sel,
+   output [22:1] fastram_addr,
+   output        fastram_lds,
+   output        fastram_uds,
+   input  [15:0] fastram_dout,
+   output [15:0] fastram_din,
+   output        fastram_wr,
+   input         fastram_ready
+
 );
+`default_nettype none
+
+wire cpu_rst;
+wire [15:0] ram_din;
+wire uart_cts;
+wire uart_rts;
+wire uart_dsr;
+wire uart_dtr;
+wire io_uio;
+wire io_fpga;
+wire io_strobe;
+wire io_wait;
+wire io_din;
+wire fpga_dout;
+wire field1;
+wire lace;
+wire fx;
+
+
 
 reg reset_d;
 always @(posedge clk_sys, posedge reset) begin
@@ -194,10 +223,10 @@ wire [2:0] cachecfg = 3'b000;  // no turbo chip and kick, no caches
 // speeds up kickstart rom access.
    
 wire	   _ram_oe_i;
-assign _ram_oe = ~(~_ram_oe_i || ram_cs);   
+assign _ram_oe = _ram_oe_i; // ~(~_ram_oe_i || ram_cs);   
    
-wire [15:0] ram_dout = ramdata_in;   
-wire [28:1] ram_addr;   
+wire [15:0] ram_dout; // = ramdata_in;   
+wire [28:1] ram_addr;
 wire	    ram_sel;
 wire	    ram_lds;
 wire	    ram_uds;
@@ -219,12 +248,15 @@ always @(posedge clk_sys)
   ram_cs_triggerD <= ram_cs_trigger;   
    
 // neg/clk7
-always @(negedge clk_sys) begin
-   if( clk7_en )
-     // only generate ready when the chipset is not accessing ram
-     ram_ready <= _ram_oe_i && ram_cs;
-   else
-     ram_ready <= 1'b0;
+reg frr_d=1'b0;
+always @(posedge clk_sys) begin
+   if(!cpu_rst)
+      ram_ready<=1'b0;
+   else if(!ram_sel)
+      ram_ready<=1'b0;
+   else if(fastram_ready!=frr_d)
+      ram_ready<=1'b1;
+   frr_d <= fastram_ready;
 end
    
 cpu_wrapper cpu_wrapper
@@ -257,7 +289,7 @@ cpu_wrapper cpu_wrapper
 
 	.cpucfg       (cpucfg          ),
 	.cachecfg     (cachecfg        ),
-	.fastramcfg   (3'd0            ),
+	.fastramcfg   (3'd2            ),
 	.bootrom      (1'b0            ),
 
 	.ramsel       (ram_sel         ),
@@ -265,7 +297,7 @@ cpu_wrapper cpu_wrapper
 	.ramlds       (ram_lds         ),
 	.ramuds       (ram_uds         ),
 	.ramdout      (ram_dout        ),
-	.ramdin       (                ),
+	.ramdin       (ram_din         ),
 	.ramready     (ram_ready       ),
 	.ramshared    (                ),
 
@@ -274,6 +306,26 @@ cpu_wrapper cpu_wrapper
 	.cacr         (cpu_cacr        ),
 	.nmi_addr     (cpu_nmi_addr    )
 );
+
+reg ram_sel_d;
+always @(posedge clk_sys) begin
+   if( cpu_ph2) begin
+		if(!ram_sel_d)
+			fastram_sel <= ram_sel;
+		ram_sel_d <= ram_sel;
+	end
+   if( fastram_ready != frr_d ) fastram_sel <= 1'b0;   
+end
+
+// assign fastram_sel = ram_sel & !ram_ready;
+assign fastram_addr = ram_addr;
+assign fastram_lds = ram_lds;
+assign fastram_uds = ram_uds;
+assign ram_dout = fastram_dout;
+assign fastram_din = ram_din;
+assign fastram_wr = (cpu_state[1:0]==2'b11) ? 1'b1 : 1'b0;
+//assign ram_ready = fastram_ready;
+
 
 // ==============================================================================
 // ===================================== IDE ====================================
@@ -1042,6 +1094,9 @@ wire [15:0] JOY0 = { 8'h00, joystick };
 wire [15:0] JOY1 = 16'h0000;
 wire [15:0] JOY2 = 16'h0000;
 wire [15:0] JOY3 = 16'h0000;   
+wire [15:0] JOYA0 = 16'h0000;
+wire [15:0] JOYA1 = 16'h0000;
+wire [63:0] RTC = 64'h0;
 
 minimig minimig
 (
@@ -1197,3 +1252,4 @@ Amber AMBER
  );
     
 endmodule
+`default_nettype wire

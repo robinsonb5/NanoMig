@@ -1,0 +1,28 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Wed Jul 16 11:41:48 2025
+[*]
+[dumpfile] "/home/amr/FPGA/TangNano20k/NanoMig/src/tcl/capture.vcd"
+[dumpfile_mtime] "Wed Jul 16 11:41:00 2025"
+[dumpfile_size] 0
+[savefile] "/home/amr/FPGA/TangNano20k/NanoMig/src/tcl/capture.gtkw"
+[timestart] 0
+[size] 2558 1380
+[pos] -1 -1
+*-7.000000 288 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 227
+[signals_width] 298
+[sst_expanded] 1
+[sst_vpaned_height] 420
+@28
+TOP.clk_28m
+@29
+TOP.clk7_en
+@22
+TOP.addr[23:0]
+@28
+TOP.ram_req
+TOP.ram_ack
+TOP.wr
+[pattern_trace] 1
+[pattern_trace] 0
