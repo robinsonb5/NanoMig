@@ -8,7 +8,7 @@
    or a single copy of e.g. a 512k diag rom
      openFPGALoader --external-flash -o 0x400000 DiagROM
 */
- 
+`default_nettype wire
 module top(
   input			clk,
 
@@ -77,6 +77,7 @@ module top(
   output [2:0]	tmds_d_n,
   output [2:0]	tmds_d_p
 );
+`default_nettype none
 
 // connect onboard BL616 console to hw pins for an USB-UART adapter
 assign uart_tx = bl616_mon_rx;
@@ -88,10 +89,11 @@ wire [5:0] db9_joy = { !io[5], !io[0], !io[2], !io[1], !io[4], !io[3] };
 // physcial dsub9 joystick port 2  
 wire [5:0] db9_joy2 = { !spare[5], !spare[0], !spare[2], !spare[1], !spare[4], !spare[3] }; 
    
+reg [5:0] jcap_leds;
 wire [5:0]	leds;
 assign leds[5] = 1'b0;
 assign leds[4] = |sd_rd;
-assign leds_n = ~leds;  
+assign leds_n = ~jcap_leds | ~leds;  
 
 // ============================== clock generation ===========================
    
@@ -125,6 +127,10 @@ wire pll_lock;
 //wire	clk_28m = clk_pixel;
 
 wire clk_7;
+wire clk_28m;
+wire clk_71m;
+wire clk_pixel;
+
 
 amigaclks amigaclks (
 	.clk_in(clk),
@@ -458,9 +464,20 @@ wire 	    ram_we_n;
 wire [1:0]  ram_be;
 wire 	    ram_oe_n;
 wire		ram_refresh;   
-   
-wire [15:0] sdram_dout;
 
+wire fastram_sel;
+wire [22:1] fastram_addr;
+wire fastram_lds;
+wire fastram_uds;
+wire [15:0] fastram_dout;
+wire [15:0] fastram_din;
+wire [1:0] fastram_be;
+wire fastram_wr;
+wire fastram_ready;
+
+assign fastram_be = {fastram_uds,fastram_lds};
+
+wire [15:0] sdram_dout;
 assign ram_din = sdram_dout;
 
 // pack config values into minimig config
@@ -532,7 +549,16 @@ nanomig nanomig
  ._ram_we(ram_we_n),        // sram write enable
  ._ram_oe(ram_oe_n),        // sram output enable
  .chip48(48'd0),
- .refresh(ram_refresh)
+ .refresh(ram_refresh),
+
+ .fastram_sel(fastram_sel),
+ .fastram_addr(fastram_addr),
+ .fastram_lds(fastram_lds),
+ .fastram_uds(fastram_uds),
+ .fastram_dout(fastram_dout),
+ .fastram_din(fastram_din),
+ .fastram_wr(fastram_wr),
+ .fastram_ready(fastram_ready)
 );
 
 wire           flash_ready;  
@@ -663,13 +689,45 @@ sdram sdram (
 	.ready      ( sdram_ready   ), // ram is ready and has been initialized
 	.sync       ( sdram_sync    ), // rising edge of sync is begin of a memory cycle
 	.refresh    ( sdram_refresh ), // refresh cycle
+
 	.din        ( sdram_din     ), // data input from chipset/cpu
 	.dout       ( sdram_dout    ),
 	.addr       ( sdram_addr    ), // 22 bit word address
 	.ds         ( sdram_be      ), // upper/lower data strobe
 	.cs         ( sdram_cs      ), // cpu/chipset requests read/wrie
-	.we         ( sdram_we      )  // cpu/chipset requests write
+	.we         ( sdram_we      ), // cpu/chipset requests write
+
+	.p2_din        ( fastram_din     ), // data input from chipset/cpu
+	.p2_dout       ( fastram_dout    ),
+	.p2_addr       ( fastram_addr    ), // 22 bit word address
+	.p2_ds         ( fastram_be      ), // upper/lower data strobe
+	.p2_cs         ( fastram_sel     ), // cpu/chipset requests read/wrie
+	.p2_we         ( fastram_wr      ),  // cpu/chipset requests write
+	.p2_ack        ( fastram_ready   )
 );
+
+wire [255:0] jcap_q;
+wire jcap_update;
+
+jcapture_fastram jcap (
+	.clk(clk_71m),
+	.reset_n(sdram_ready),
+	.addr({1'b0,fastram_addr,1'b0}),
+	.wr(fastram_wr),
+	.ram_req(fastram_sel),
+	.ram_ack(fastram_ready),
+	.q(jcap_q),
+	.clk7_en(clk7_en),
+	.clk_28m(clk_28m),
+	.update(jcap_update)
+);
+
+always @(posedge clk_71m) begin
+	if(jcap_update)
+		jcap_leds<=jcap_q[5:0];
+end
+
+wire [1:0] fastram_cs = {fastram_uds,fastram_lds};
 
 // run the flash a 71MHz. This is only used at power-up to copy kickstart
 // from flash to sdram
@@ -758,3 +816,4 @@ endmodule
 // tab-width: 4
 // End:
 
+`default_nettype wire

@@ -1,6 +1,7 @@
 set_device GW2AR-LV18QN88C8/I7 -name GW2AR-18C
 
 add_file nanomig.v
+add_file amigaclks.v
 add_file minimig-aga/amiga_clk.v
 add_file minimig-aga/cpu_wrapper.v
 add_file minimig-aga/minimig.v 
@@ -91,6 +92,13 @@ add_file tg68k/TG68K.vhd
 add_file tg68k/TG68K_ALU.vhd
 add_file tg68k/TG68KdotC_Kernel.vhd
 add_file misc/amiga_xml.hex
+
+add_file jcapture/jcapture_pkg.vhd
+add_file jcapture/jcapture.vhd
+add_file jcapture/debug_virtualjtag_gw2ar.vhd
+add_file jcapture/vjtag_fifo.vhd
+add_file jcapture/gwjtag_wrapper.v
+add_file jcapture_fastram.v
 
 set_option -synthesis_tool gowinsynthesis
 set_option -output_base_name nanomig
