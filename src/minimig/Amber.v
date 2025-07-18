@@ -42,7 +42,7 @@
 
 `define SCANLINES
 
-module Amber
+module Amber #(parameter bits=4) 
 (	
 	input 	clk28m,
 	input	[1:0] lr_filter,		//interpolation filters settings for low resolution
@@ -51,31 +51,39 @@ module Amber
 	input	[8:1] htotal,			//video line length
 	input	hires,				//display is in hires mode (from bplcon0)
 	input	dblscan,			//enable VGA output (enable scandoubler)
-	input 	[3:0] red_in, 			//red componenent video in
-	input 	[3:0] green_in,  		//green component video in
-	input 	[3:0] blue_in,			//blue component video in
+	input 	[bits-1:0] red_in, 			//red componenent video in
+	input 	[bits-1:0] green_in,  		//green component video in
+	input 	[bits-1:0] blue_in,			//blue component video in
 	input	_hsync_in,			//horizontal synchronisation in
 	input	_vsync_in,			//vertical synchronisation in
 	input	_csync_in,			//composite synchronization in
-	output 	reg [3:0] red_out, 		//red componenent video out
-	output 	reg [3:0] green_out,  	        //green component video out
-	output 	reg [3:0] blue_out,		//blue component video out
+	output 	reg [bits-1:0] red_out, 		//red componenent video out
+	output 	reg [bits-1:0] green_out,  	        //green component video out
+	output 	reg [bits-1:0] blue_out,		//blue component video out
 	output	reg _hsync_out,			//horizontal synchronisation out
 	output	reg _vsync_out			//vertical synchronisation out
 );
 
+localparam b_low = 0;
+localparam b_high = b_low + bits;
+localparam g_low  = b_high+1;
+localparam g_high = g_low+bits;
+localparam r_low  = g_high+1;
+localparam r_high = r_low+bits;
+localparam hs_bit = r_high+1;
+
 //local signals
-reg 	[3:0] t_red;
-reg 	[3:0] t_green;
-reg 	[3:0] t_blue;
+reg 	[bits-1:0] t_red;
+reg 	[bits-1:0] t_green;
+reg 	[bits-1:0] t_blue;
 
-reg 	[3:0] red_del;				//delayed by 70ns for horizontal interpolation
-reg 	[3:0] green_del;			//delayed by 70ns for horizontal interpolation
-reg 	[3:0] blue_del;				//delayed by 70ns for horizontal interpolation
+reg 	[bits-1:0] red_del;				//delayed by 70ns for horizontal interpolation
+reg 	[bits-1:0] green_del;			//delayed by 70ns for horizontal interpolation
+reg 	[bits-1:0] blue_del;				//delayed by 70ns for horizontal interpolation
 
-wire 	[4:0] red;				//signal after horizontal interpolation
-wire	[4:0] green;				//signal after horizontal interpolation
-wire 	[4:0] blue;				//signal after horizontal interpolation
+wire 	[bits:0] red;				//signal after horizontal interpolation
+wire	[bits:0] green;				//signal after horizontal interpolation
+wire 	[bits:0] blue;				//signal after horizontal interpolation
 
 reg	_hsync_in_del;				//delayed horizontal synchronisation input
 reg	hss;					//horizontal sync start
@@ -146,10 +154,10 @@ always @(posedge clk28m)
 	if (hss)
 		vfilter <= hires ? hr_filter[1] : lr_filter[1];		//vertical interpolation enable
 
-reg [15:0] lbf [1023:0]/*synthesis syn_ramstyle = "block_ram"*/;	// line buffer for scan doubling (there are 908/910 hires pixels in every line)
-reg [15:0] lbfo;			// line buffer output register
-reg [15:0] lbfo2;			// compensantion for one clock delay of the second line buffer
-reg [15:0] lbfdo;			// delayed line buffer output register
+reg [hs_bit:0] lbf [1023:0]/*synthesis syn_ramstyle = "block_ram"*/;	// line buffer for scan doubling (there are 908/910 hires pixels in every line)
+reg [hs_bit:0] lbfo;			// line buffer output register
+reg [hs_bit:0] lbfo2;			// compensantion for one clock delay of the second line buffer
+reg [hs_bit:0] lbfdo;			// delayed line buffer output register
 
 // line buffer write and read
 always @(posedge clk28m) begin
@@ -157,11 +165,11 @@ always @(posedge clk28m) begin
    lbfo <= lbf[rd_ptr[9:0]];
 end
    
-reg [15:0] lbfd [1023:0]; // delayed line buffer for vertical interpolation
+reg [hs_bit:0] lbfd [1023:0]; // delayed line buffer for vertical interpolation
 
 //delayed line buffer read/write
 always @(posedge clk28m) begin
-   reg [15:0] lbfdoD;   
+   reg [hs_bit:0] lbfdoD;   
 
    // this originally read and wrote the same cell at a time. But gowin (at least 1.9.11)
    // fails to synthesize this. We thus write one cell "earlier" and delay the output word to
@@ -179,20 +187,20 @@ always @(posedge clk28m)
 // output pixel generation - vertical interpolation
 always @(posedge clk28m)
 begin
-		_hsync_out <= dblscan ? lbfo2[15] : _csync_in;
+		_hsync_out <= dblscan ? lbfo2[hs_bit] : _csync_in;
 		_vsync_out <= dblscan ? _vsync_in : 1'b1;
 
 		if (vfilter)
 		begin //vertical interpolation
-			t_red    <= ( lbfo2[14:10] + lbfdo[14:10] ) / 4;
-			t_green  <= ( lbfo2[9:5] + lbfdo[9:5] ) / 4;
-			t_blue   <= ( lbfo2[4:0] + lbfdo[4:0] ) / 4;
+			t_red    <= ( lbfo2[r_high:r_low] + lbfdo[r_high:r_low] ) / 4;
+			t_green  <= ( lbfo2[g_high:g_low] + lbfdo[g_high:g_low] ) / 4;
+			t_blue   <= ( lbfo2[b_high:b_low] + lbfdo[b_high:b_low] ) / 4;
 		end
 		else
 		begin //no vertical interpolation
-			t_red    <= lbfo2[14:11];
-			t_green  <= lbfo2[9:6];
-			t_blue   <= lbfo2[4:1];
+			t_red    <= lbfo2[r_high:r_low+1];
+			t_green  <= lbfo2[g_high:g_low+1];
+			t_blue   <= lbfo2[b_high:b_low+1];
 		end
 end
 
@@ -200,9 +208,9 @@ end
 `ifdef SCANLINES 
 always @(posedge clk28m)
 	if (dblscan && scanline_ena && scanline[1])
-		{red_out,green_out,blue_out} <= 12'h000;
+		{red_out,green_out,blue_out} <= 0;
 	else if (dblscan && scanline_ena && scanline[0])
-		{red_out,green_out,blue_out} <= {1'b0,t_red[3:1],1'b0,t_green[3:1],1'b0,t_blue[3:1]};
+		{red_out,green_out,blue_out} <= {1'b0,t_red[bits-1:1],1'b0,t_green[bits-1:1],1'b0,t_blue[bits-1:1]};
 	else
 		{red_out,green_out,blue_out} <= {t_red,t_green,t_blue};
 `else

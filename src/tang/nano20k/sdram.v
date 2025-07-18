@@ -41,6 +41,7 @@ module sdram (
 	input		  refresh,
 	input [15:0]	  din, // data input from chipset/cpu
 	output reg [15:0] dout,
+	output reg [47:0] dout48,
 	input [21:0]	  addr, // 22 bit word address
 	input [1:0]	  ds, // upper/lower data strobe
 	input		  cs, // cpu/chipset requests read/wrie
@@ -63,7 +64,7 @@ assign sd_clk = ~clk;
 assign sd_cke = 1'b1;  
    
 localparam RASCAS_DELAY   = 3'd2;   // tRCD=15ns -> 2 cycle@85MHz
-localparam BURST_LENGTH   = 3'b000; // 000=1, 001=2, 010=4, 011=8
+localparam BURST_LENGTH   = 3'b010; // 000=1, 001=2, 010=4, 011=8
 localparam ACCESS_TYPE    = 1'b0;   // 0=sequential, 1=interleaved
 localparam CAS_LATENCY    = 3'd2;   // 2/3 allowed
 localparam OP_MODE        = 2'b00;  // only 00 (standard operation) allowed
@@ -79,6 +80,9 @@ localparam MODE = { 1'b0, NO_WRITE_BURST, OP_MODE, CAS_LATENCY, ACCESS_TYPE, BUR
 localparam STATE_IDLE      = 4'd0;   // first state in cycle
 localparam STATE_CMD_CONT  = STATE_IDLE + RASCAS_DELAY; // command can be continued (== state 2)
 localparam STATE_READ      = STATE_CMD_CONT + CAS_LATENCY + 4'd1; // (== state 5)
+localparam STATE_READ2     = STATE_READ + 4'd1; // (== state 6)
+localparam STATE_READ3     = STATE_READ2 + 4'd1; // (== state 7)
+localparam STATE_READ4     = STATE_READ3 + 4'd1; // (== state 8)
 localparam STATE_LAST      = 4'd11;  // last state in cycle
 
 // Cycle pattern:
@@ -141,6 +145,8 @@ localparam PORTIDLE=2'b11;
 reg [1:0] sdram_port;
 
 localparam SYNCD = 2;
+
+reg [31:0] sd_data_d;
 
 always @(posedge clk) begin
 	reg [SYNCD:0] syncD;   
@@ -254,8 +260,10 @@ always @(posedge clk) begin
 				case(sdram_port)
 					PORTREFRESH:
 						sd_cmd <= CMD_AUTO_REFRESH;
-					PORT1 : 
+					PORT1 : begin
 						dout <= addr[0]?sd_data[15:0]:sd_data[31:16];
+						dout48[47:32] <= sd_data[15:0];
+					end
 					PORT2 : begin
 						p2_dout <= p2_addr[0]?sd_data[15:0]:sd_data[31:16];
 						p2_ack <= ~p2_ack;
@@ -264,6 +272,22 @@ always @(posedge clk) begin
 					default:
 						;
 				endcase
+			end
+
+			if(state == STATE_READ2) begin
+				sd_data_d <= sd_data;
+//				if(sdram_port == PORT1)
+//					dout48[47:32] <= sd_data_d[15:0];
+			end
+
+			if(state == STATE_READ3) begin
+				if(sdram_port == PORT1)
+					dout48[31:16] <= sd_data_d[31:16];
+			end
+
+			if(state == STATE_READ4) begin
+				if(sdram_port == PORT1)
+					dout48[15:0] <= sd_data_d[15:0];
 			end
 
 			if(state == STATE_LAST) 

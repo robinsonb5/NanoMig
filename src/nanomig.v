@@ -21,9 +21,9 @@ module nanomig (
    // video
    output	 hs, // horizontal sync
    output	 vs, // vertical sync
-   output [3:0]	 r,
-   output [3:0]	 g,
-   output [3:0]	 b,
+   output [7:0]	 r,
+   output [7:0]	 g,
+   output [7:0]	 b,
 
    input [7:0]	 memory_config,
    input [5:0]	 chipset_config,
@@ -1081,9 +1081,9 @@ wire ide_write = (!ide_exec_cnt[0] && (
 wire [7:0] red, green, blue;   
 wire	   hbl, vbl;
 wire [8:0] htotal;   
-wire [3:0] r_in = (hbl||vbl)?4'h0:red[7:4];
-wire [3:0] g_in = (hbl||vbl)?4'h0:green[7:4];
-wire [3:0] b_in = (hbl||vbl)?4'h0:blue[7:4];   
+wire [7:0] r_in = (hbl||vbl)?8'h0:red[7:0];
+wire [7:0] g_in = (hbl||vbl)?8'h0:green[7:0];
+wire [7:0] b_in = (hbl||vbl)?8'h0:blue[7:0];   
 
 wire [1:0] res;   
 wire	   hs_in, vs_in;   
@@ -1229,7 +1229,7 @@ minimig minimig
 	.ide_readdata ( ide_readdata    )
 );
 
-Amber AMBER
+Amber #(.bits(8)) AMBER
 (
 	.clk28m(clk_sys),
 	.lr_filter(video_config[3:2]),	//interpolation filters settings for low resolution
@@ -1249,7 +1249,7 @@ Amber AMBER
 	.blue_out(b),		        //blue component video out
 	._hsync_out(hs),		//horizontal synchronisation out
 	._vsync_out(vs)			//vertical synchronisation out
- );
+);
     
 endmodule
 `default_nettype wire

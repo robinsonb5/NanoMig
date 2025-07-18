@@ -75,7 +75,7 @@ reg [5:0] jcap_leds;
 wire [5:0]	leds;
 assign leds[5] = 1'b0;
 assign leds[4] = |sd_rd;
-assign leds_n = ~jcap_leds | ~leds;  
+assign leds_n = ~leds;  
 
 // ============================== clock generation ===========================
    
@@ -331,13 +331,13 @@ sysctrl sysctrl (
    
 // digital 12 bit video
 wire hs_n, vs_n;
-wire [3:0] red;
-wire [3:0] green;
-wire [3:0] blue;
+wire [7:0] red;
+wire [7:0] green;
+wire [7:0] blue;
    
-wire [5:0] video_red;
-wire [5:0] video_green;
-wire [5:0] video_blue;   
+wire [7:0] video_red;
+wire [7:0] video_green;
+wire [7:0] video_blue;   
 
 osd_u8g2 osd_u8g2 (
         .clk(clk_28m),
@@ -350,9 +350,9 @@ osd_u8g2 osd_u8g2 (
         .hs(hs_n),
         .vs(vs_n),
 
-        .r_in({red,   2'b00}),
-        .g_in({green, 2'b00}),
-        .b_in({blue,  2'b00}),
+        .r_in(red),
+        .g_in(green),
+        .b_in(blue),
 
         .r_out(video_red),
         .g_out(video_green),
@@ -404,11 +404,13 @@ wire fastram_ready;
 
 assign fastram_be = {fastram_uds,fastram_lds};
 
+wire [47:0] chip48;
 wire [15:0] sdram_dout;
 assign ram_din = sdram_dout;
 
 // pack config values into minimig config
-wire [5:0] chipset_config = { 1'b0,osd_chipset,osd_video_mode,1'b0 };
+//wire [5:0] chipset_config = { 1'b0,osd_chipset,osd_video_mode,1'b0 };
+wire [5:0] chipset_config = { 3'b110,osd_video_mode,1'b0 };
 wire [7:0] memory_config = { 4'b0_000, osd_slowmem, osd_chipmem };   
 wire [3:0] floppy_config = { osd_floppy_drives, 1'b0, osd_floppy_turbo };
 wire [3:0] video_config = { osd_video_filter, osd_video_scanlines };   
@@ -474,7 +476,7 @@ nanomig nanomig
  ._ram_ble(ram_be[0]),      // sram lower byte select
  ._ram_we(ram_we_n),        // sram write enable
  ._ram_oe(ram_oe_n),        // sram output enable
- .chip48(48'd0),
+ .chip48(chip48),
  .refresh(ram_refresh),
 
  .fastram_sel(fastram_sel),
@@ -618,6 +620,7 @@ sdram sdram (
 
 	.din        ( sdram_din     ), // data input from chipset/cpu
 	.dout       ( sdram_dout    ),
+	.dout48     ( chip48        ),
 	.addr       ( sdram_addr    ), // 22 bit word address
 	.ds         ( sdram_be      ), // upper/lower data strobe
 	.cs         ( sdram_cs      ), // cpu/chipset requests read/wrie
@@ -635,23 +638,23 @@ sdram sdram (
 wire [255:0] jcap_q;
 wire jcap_update;
 
-jcapture_fastram jcap (
-	.clk(clk_71m),
-	.reset_n(sdram_ready),
-	.addr({1'b0,fastram_addr,1'b0}),
-	.wr(fastram_wr),
-	.ram_req(fastram_sel),
-	.ram_ack(fastram_ready),
-	.q(jcap_q),
-	.clk7_en(clk7_en),
-	.clk_28m(clk_28m),
-	.update(jcap_update)
-);
+//jcapture_fastram jcap (
+//	.clk(clk_71m),
+//	.reset_n(sdram_ready),
+//	.addr({1'b0,fastram_addr,1'b0}),
+//	.wr(fastram_wr),
+//	.ram_req(fastram_sel),
+//	.ram_ack(fastram_ready),
+//	.q(jcap_q),
+//	.clk7_en(clk7_en),
+//	.clk_28m(clk_28m),
+//	.update(jcap_update)
+//);
 
-always @(posedge clk_71m) begin
-	if(jcap_update)
-		jcap_leds<=jcap_q[5:0];
-end
+//always @(posedge clk_71m) begin
+//	if(jcap_update)
+//		jcap_leds<=jcap_q[5:0];
+//end
 
 wire [1:0] fastram_cs = {fastram_uds,fastram_lds};
 
@@ -725,7 +728,7 @@ hdmi #(
   .interlace(interlace),
   .reset(vreset),    // signal to synchronize HDMI
 
-  .rgb( { video_red, 2'b00, video_green, 2'b00, video_blue, 2'b00 } )
+  .rgb( { video_red, video_green, video_blue } )
 );
 
 // differential output
