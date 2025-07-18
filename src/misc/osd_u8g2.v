@@ -15,13 +15,13 @@ module osd_u8g2 (
 	    
   input        hs,
   input        vs, 
-  input [5:0]  r_in,
-  input [5:0]  g_in,
-  input [5:0]  b_in,
+  input [7:0]  r_in,
+  input [7:0]  g_in,
+  input [7:0]  b_in,
 
-  output [5:0] r_out,
-  output [5:0] g_out,
-  output [5:0] b_out
+  output [7:0] r_out,
+  output [7:0] g_out,
+  output [7:0] b_out
 );
 
 // OSD is enabled and visible
@@ -40,17 +40,17 @@ wire active, sactive, tactive;
    
 // draw active osd, add some shadow to those parts outside osd
 // that are covered by shadow
-assign r_out = !enabled?r_in:active?osd_r:sactive?{1'b0, r_in[5:1]}:r_in;
-assign g_out = !enabled?g_in:active?osd_g:sactive?{1'b0, g_in[5:1]}:g_in;
-assign b_out = !enabled?b_in:active?osd_b:sactive?{1'b0, b_in[5:1]}:b_in;   
+assign r_out = !enabled?r_in:active?osd_r:sactive?{1'b0, r_in[7:1]}:r_in;
+assign g_out = !enabled?g_in:active?osd_g:sactive?{1'b0, g_in[7:1]}:g_in;
+assign b_out = !enabled?b_in:active?osd_b:sactive?{1'b0, b_in[7:1]}:b_in;   
 
 wire	   osd_pix;  
-wire [5:0] osd_pix_col;
+wire [7:0] osd_pix_col;
 
 // background is darker where "shadow" is active
-wire [5:0] osd_r = (tactive && osd_pix)?osd_pix_col:sactive?{4'b0000, r_in[5:4]}:{3'b000, r_in[5:3]};
-wire [5:0] osd_g = (tactive && osd_pix)?osd_pix_col:sactive?{4'b0000, g_in[5:4]}:{3'b000, g_in[5:3]};
-wire [5:0] osd_b = (tactive && osd_pix)?osd_pix_col:sactive?{4'b0100, b_in[5:4]}:{3'b010, b_in[5:3]};  
+wire [7:0] osd_r = (tactive && osd_pix)?osd_pix_col:sactive?{4'b0000, r_in[7:4]}:{3'b000, r_in[7:3]};
+wire [7:0] osd_g = (tactive && osd_pix)?osd_pix_col:sactive?{4'b0000, g_in[7:4]}:{3'b000, g_in[7:3]};
+wire [7:0] osd_b = (tactive && osd_pix)?osd_pix_col:sactive?{4'b0100, b_in[7:4]}:{3'b010, b_in[7:3]};  
    
 `define BORDER 2
 `define SHADOW 4
@@ -126,7 +126,7 @@ reg [7:0] buffer_byte;
 always @(posedge clk)
    buffer_byte <= buffer[{ vpix[6:4], hpixD[7:1] }];
    
-assign osd_pix_col = 6'd63;
+assign osd_pix_col = 8'd255;
 
 // -------------------------- video signal analysis -------------------------
    
