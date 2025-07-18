@@ -409,8 +409,13 @@ wire [15:0] sdram_dout;
 assign ram_din = sdram_dout;
 
 // pack config values into minimig config
-//wire [5:0] chipset_config = { 1'b0,osd_chipset,osd_video_mode,1'b0 };
-wire [5:0] chipset_config = { 3'b110,osd_video_mode,1'b0 };
+
+// ECS
+wire [5:0] chipset_config = { 1'b0,osd_chipset,osd_video_mode,1'b0 };
+
+// AGA support - hardcode first three bits to 3'b110
+//wire [5:0] chipset_config = { 3'b110,osd_video_mode,1'b0 };
+
 wire [7:0] memory_config = { 4'b0_000, osd_slowmem, osd_chipmem };   
 wire [3:0] floppy_config = { osd_floppy_drives, 1'b0, osd_floppy_turbo };
 wire [3:0] video_config = { osd_video_filter, osd_video_scanlines };   
