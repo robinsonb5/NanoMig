@@ -29,10 +29,11 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
-#define KICK "kick31.rom" 
+// #define KICK "kick31.rom" 
 // #define KICK "kick12.rom" 
 // #define KICK "DiagROM/DiagROM"
-// #define KICK "test_rom/test_rom.bin"
+//#define KICK "test_rom/test_rom.bin"
+#define KICK "actest/test_rom.bin"
 
 #define FDC_TEST
 
@@ -59,8 +60,8 @@ std::string g_adf_path;
 
 // specfiy simulation runtime and from which point in time a trace should
 // be written
-//#define TRACESTART   0.0 // 4.2
-//#define TRACEEND     (TRACESTART + 0.1)   // 0.1s ~ 1G
+#define TRACESTART   0.080 // 4.2
+#define TRACEEND     (TRACESTART + 0.002)   // 0.1s ~ 1G
 
 // kick13 events:
 // 80ms -> hardware is out of sysctrl reset
@@ -808,12 +809,17 @@ void sd_handle()  {
 
 // proceed simulation by one tick
 void tick(int c) {
+  static int clk7=0;
   static uint64_t ticks = 0;
   static int sector_tx = 0;
   static int sector_tx_cnt = 512;
   static int sector_rx_cnt = 512;
 
+  tb->clk_7m=(2^clk7&2)>>1;
   tb->clk = c;
+  tb->clk_85 = c;
+  if(!c)
+  	++clk7;
 
   if(c && !tb->reset) {
     
@@ -1138,7 +1144,23 @@ void tick(int c) {
 #ifdef TRACESTART
   if(simulation_time > TRACESTART) trace->dump(1000000000000 * simulation_time);
 #endif
-  simulation_time += TICKLEN;
+  simulation_time += TICKLEN/3;
+  tb->clk_85 = 1-c;
+  tb->eval();
+#ifdef TRACESTART
+  if(simulation_time > TRACESTART) trace->dump(1000000000000 * simulation_time);
+#endif
+  simulation_time += TICKLEN/3;
+  tb->clk_85 = c;
+  tb->eval();
+#ifdef TRACESTART
+  if(simulation_time > TRACESTART) trace->dump(1000000000000 * simulation_time);
+#endif
+  simulation_time += TICKLEN/3;
+}
+
+double sc_time_stamp() {
+	return 1000000000000*simulation_time;
 }
 
 int main(int argc, char **argv) {

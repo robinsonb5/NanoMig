@@ -2,6 +2,7 @@
 
 module nanomig_tb
   (
+   input     clk_85,
    input	 clk, // 28mhz
    output	 clk_7m, 
    output	 clk7_en,
@@ -98,6 +99,16 @@ sd_rw #(
 );
 `endif //  `ifdef SD_EMU
    
+wire fastram_sel;
+wire [22:1] fastram_addr;
+wire fastram_lds;
+wire fastram_uds;
+wire [15:0] fastram_dout;
+wire [15:0] fastram_din;
+wire [1:0] fastram_be;
+wire fastram_wr;
+reg fastram_ready;
+
 nanomig nanomig (
 		 // system pins
 		 .clk_sys(clk),   // 28.37516 MHz clock
@@ -112,7 +123,7 @@ nanomig nanomig (
                  .chipset_config(chipset_config),
                  .memory_config(8'b0_0_00_00_01),
                  .floppy_config(4'h0),
-                 .ide_config(6'b000111),
+                 .ide_config(6'b100111), // Disable fast IDE mode for now, since it's not yet implemented for Nanomig
 
 		 .hs(hs_n),
 		 .vs(vs_n),
@@ -123,7 +134,6 @@ nanomig nanomig (
 		 .joystick0(6'b000000),
  		 .joystick1(6'b000000),
 
-		 
 		 // sd card interface for floppy disk emulation
 		 .sdc_img_mounted    ( sdc_img_mounted     ),
 		 .sdc_img_size       ( sdc_img_size        ),  // length of image file		 
@@ -147,8 +157,128 @@ nanomig nanomig (
 		 ._ram_bhe(_ram_bhe),       // sram upper byte select
 		 ._ram_ble(_ram_ble),       // sram lower byte select
 		 ._ram_we(_ram_we),         // sram write enable
-		 ._ram_oe(_ram_oe)          // sram output enable
-		 );
+		 ._ram_oe(_ram_oe),          // sram output enable
+
+		 .fastram_sel(fastram_sel),
+		 .fastram_addr(fastram_addr),
+		 .fastram_lds(fastram_lds),
+		 .fastram_uds(fastram_uds),
+		 .fastram_dout(fastram_dout),
+		 .fastram_din(fastram_din),
+		 .fastram_wr(fastram_wr),
+		 .fastram_ready(fastram_ready)
+
+);
+
+// run a counter at 28Mhz synchonous to the 7Mhz bus cycle
+reg	    [1:0] cyc;   
+always @(posedge clk)
+  if(clk7_en) cyc <= 2'd0;
+  else        cyc <= cyc + 2'd1;
+
+wire        sdram_ready;
+wire	    sdram_rw      = 1'b1;
+   
+wire		sdram_cs      = 1'b0;
+
+wire        sdram_sync    = cyc;
+   
+wire		sdram_refresh = 1'b0;
+   
+wire [21:0] sdram_addr    = 22'b0;
+wire [15:0] sdram_din     = 16'b0;
+wire [1:0]  sdram_be      = 2'b11;
+wire		sdram_we      = 1'b0;
+   
+wire O_sdram_cke;
+wire [31:0] IO_sdram_dq;
+wire [11:0] O_sdram_addr;
+wire [3:0] O_sdram_dqm;
+wire [1:0] O_sdram_ba;
+wire O_sdram_cs_n;
+wire O_sdram_wen_n;
+wire O_sdram_ras_n;
+wire O_sdram_cas_n;
+
+lfsr #(.width(32)) rnd
+(
+	.clk(clk_85),
+	.reset_n(sdram_ready),
+	.e(1'b1),
+	.save(1'b0),
+	.restore(1'b0)
+//	.q(IO_sdram_dq)
+);
+
+
+sdram sdram (
+//  	.sd_clk     ( O_sdram_clk   ), // sd clock
+	.sd_cke     ( O_sdram_cke   ), // clock enable
+	.sd_data    ( IO_sdram_dq   ), // 32 bit bidirectional data bus
+	.sd_addr    ( O_sdram_addr  ), // 11 bit multiplexed address bus
+	.sd_dqm     ( O_sdram_dqm   ), // two byte masks
+	.sd_ba      ( O_sdram_ba    ), // two banks
+	.sd_cs      ( O_sdram_cs_n  ), // a single chip select
+	.sd_we      ( O_sdram_wen_n ), // write enable
+	.sd_ras     ( O_sdram_ras_n ), // row address select
+	.sd_cas     ( O_sdram_cas_n ), // columns address select
+
+	// cpu/chipset interface
+	.clk        ( clk_85       ), // sdram is accessed at 71MHz
+	.reset_n    ( !reset       ), // init signal after FPGA config to initialize RAM
+
+	.ready      ( sdram_ready   ), // ram is ready and has been initialized
+	.sync       ( sdram_sync    ), // rising edge of sync is begin of a memory cycle
+	.refresh    ( sdram_refresh ), // refresh cycle
+
+	.din        ( sdram_din     ), // data input from chipset/cpu
+	.dout       ( sdram_dout    ),
+	.addr       ( sdram_addr    ), // 22 bit word address
+	.ds         ( sdram_be      ), // upper/lower data strobe
+	.cs         ( sdram_cs      ), // cpu/chipset requests read/wrie
+	.we         ( sdram_we      ), // cpu/chipset requests write
+
+	.p2_din        ( fastram_din     ), // data input from chipset/cpu
+	.p2_dout       ( fastram_dout    ),
+	.p2_addr       ( fastram_addr    ), // 22 bit word address
+	.p2_ds         ( fastram_be      ), // upper/lower data strobe
+	.p2_cs         ( fastram_sel     ), // cpu/chipset requests read/wrie
+	.p2_we         ( fastram_wr      ),  // cpu/chipset requests write
+	.p2_ack        ( fastram_ready   )
+);
+
+wire O_sdram_clk = ~clk_85;
+
+// SDRAM 1 - low 16 bits
+mt48lc16m16a2
+sdram1 (
+  .Dq         (IO_sdram_dq[15:0]),
+  .Addr       (O_sdram_addr),
+  .Ba         (O_sdram_ba),
+  .Clk        (O_sdram_clk),
+  .Cke        (O_sdram_cke),
+  .Cs_n       (O_sdram_cs_n),
+  .Ras_n      (O_sdram_ras_n),
+  .Cas_n      (O_sdram_cas_n),
+  .We_n       (O_sdram_wen_n),
+  .Dqm        (O_sdram_dqm[1:0])
+);
+
+// SDRAM 2 - high 16 bits
+mt48lc16m16a2
+sdram2 (
+  .Dq         (IO_sdram_dq[31:16]),
+  .Addr       (O_sdram_addr),
+  .Ba         (O_sdram_ba),
+  .Clk        (O_sdram_clk),
+  .Cke        (O_sdram_cke),
+  .Cs_n       (O_sdram_cs_n),
+  .Ras_n      (O_sdram_ras_n),
+  .Cas_n      (O_sdram_cas_n),
+  .We_n       (O_sdram_wen_n),
+  .Dqm        (O_sdram_dqm[3:2])
+);
+
 
 video_analyzer video_analyzer 
 (

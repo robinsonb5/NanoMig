@@ -179,6 +179,9 @@ wire sdram_ready;
 // din, ss and clk are inputs coming from the MCU
 // onboard connection to on-board BL616
 
+wire spi_io_dout;
+wire spi_intn;
+
 assign spi_dir = spi_io_dout;
 assign m0s[4:0] = { spi_intn, 3'bzzz, spi_io_dout };
 assign spi_irqn = spi_intn;
@@ -492,8 +495,8 @@ wire [5:0] chipset_config = { 1'b0,osd_chipset,osd_video_mode,1'b0 };
 wire [7:0] memory_config = { 4'b0_000, osd_slowmem, osd_chipmem };   
 wire [3:0] floppy_config = { osd_floppy_drives, 1'b0, osd_floppy_turbo };
 wire [3:0] video_config = { osd_video_filter, osd_video_scanlines };   
-wire [5:0] ide_config = { 5'b00000, osd_ide_enable };   
-   
+wire [5:0] ide_config = { 5'b10000, osd_ide_enable };    // Disable fast IDE for now, since it's not yet implemented.
+
 nanomig nanomig
 (
  .clk_sys(clk_28m),

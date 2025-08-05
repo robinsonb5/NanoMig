@@ -25,7 +25,7 @@ YPOS	EQU     $202
 	;; actual code starting point
 start:
         ;; wait >80ms for minimig-aga syctrl reset to be gone
-        move    #60000,d0
+        move    #5000,d0
 iwlp:   dbra    d0,iwlp
 	
 	move.l  #$100,sp	; use ram below $100 as stack

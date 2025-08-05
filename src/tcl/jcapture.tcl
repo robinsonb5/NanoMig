@@ -20,8 +20,11 @@ set ::jcapture::devices {
 	
 	# ECP5 LFE5UM85 on MMM-V4R0-L5SD
 	{ 0x01113043 0x32 0x38 ECP5 }
-}
 
+	# XC3S1600 on PanoLogic G1
+	{ 0x21c3a093 0x02 0x03 {Spartan 3E}}
+
+}
 
 set ::jcapture::tap ""
 set ::jcapture::fields ""
@@ -61,9 +64,14 @@ proc ::jcapture::setup { newtap capture_fields} {
 			set ::jcapture::vir [lindex $record 1]
 			set ::jcapture::vdr [lindex $record 2]
 			puts "[lindex $record 3] found - vir $::jcapture::vir, vdr $::jcapture::vdr"
+			set v $i
 		}
 	}
 
+	if {$v==-1} {
+		puts "Device with JTAG ID $id needs to be added to jcapture.tcl."
+		exit
+	}
 
 	# Set an initial capture width, otherwise the FIFO flush will fail
 	set ::jcapture::capture_width 32
