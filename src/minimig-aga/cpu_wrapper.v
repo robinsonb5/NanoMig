@@ -24,8 +24,8 @@
 //--------------------------------------------------------------------------//
 //--------------------------------------------------------------------------//
 
-// `define ENABLE_TG68K
-`define ENABLE_FX68K
+`define ENABLE_TG68K
+//`define ENABLE_FX68K
 
 `define TG68K_A24      // limit address space of TG68K to 24 bit
 
