@@ -30,18 +30,27 @@
 #include "Vnanomig_tb.h"
 
 //#define KICK "kick12.rom" 
-#define KICK "kick13.rom" 
+//#define KICK "kick13.rom" 
 // #define KICK "kick31.rom" 
 // #define KICK "DiagROM/DiagROM"
 // #define KICK "../src/ram_test/ram_test.bin"
 // #define KICK "test_rom/test_rom.bin"
+#define KICK "autoconftest/test_rom.bin"
 
 Vnanomig_tb *tb;
 static VerilatedFstC *trace;
 double simulation_time;
 
+// SDRAM model needs to know the current time - in nanoseconds.
+double sc_time_stamp() {
+	return simulation_time * 1000000000000.0;
+}
+
+
 #define TICKLEN   (0.5/28375160)
 #include "sd_card_config.h"       // for TICKLEN
+
+#define TRACESTART 0.08
 
 // with kick 1.3 and 512k
 //#define TRACESTART   3.5    // first floppy read
@@ -76,7 +85,7 @@ double simulation_time;
 // #define TRACESTART   10.9   // FDC write
 
 #ifdef TRACESTART
-#define TRACEEND     (TRACESTART + 0.1)
+#define TRACEEND     (TRACESTART + 0.025)
 #endif
 
 // with turbo kick:
@@ -344,6 +353,7 @@ void load_kick(void) {
   fclose(fd);
 }
 
+
 // The amiga does MFM data encoding in software and the floppy controller
 // itself inside paula is rather simple. The data inside ADF floppy images
 // as stored on an SD card is not MFM encoded. This means that on a read
@@ -465,7 +475,7 @@ void fdc_verify(int is_wr, int drive, uint16_t word) {
 	  printf(YELLOW "Write data LBA %d has been modified" END "\n", io[is_wr].track*11+io[is_wr].sector);
 	else {
 	  printf(RED "Read data LBA %d comparison failed" END "\n", io[is_wr].track*11+io[is_wr].sector);
-	  hexdiff(decoded, orig, 512);
+//	  hexdiff(decoded, orig, 512);
 	}
       } else
 	printf(GREEN "%s data successfully received for LBA %d" END "\n",
@@ -650,25 +660,29 @@ void tick(int c) {
   
   }
 
-  tb->eval();
+  for(int tick85=0;tick85<3;++tick85) {
+    tb->clk_85 = tb->clk_85 ^ 1;
+    tb->eval();
 
-  if(c) capture_video();
+    if(c) capture_video();
 
-  if(simulation_time == 0)
-    ticks = GetTickCountMs();
+    if(simulation_time == 0)
+      ticks = GetTickCountMs();
   
-  // after one simulated millisecond calculate real time */
-  if(simulation_time >= 0.001 && ticks) {
-    ticks = GetTickCountMs() - ticks;
-    printf("Speed factor = %lu\n", ticks);
-    ticks = 0;
+    // after one simulated millisecond calculate real time */
+    if(simulation_time >= 0.001 && ticks) {
+      ticks = GetTickCountMs() - ticks;
+      printf("Speed factor = %lu\n", ticks);
+      ticks = 0;
+    }
+  
+    // trace after
+  #ifdef TRACESTART
+    if(simulation_time > TRACESTART)
+      trace->dump(1000000000000 * simulation_time);      
+  #endif
+    simulation_time += TICKLEN/3;
   }
-  
-  // trace after
-#ifdef TRACESTART
-  if(simulation_time > TRACESTART) trace->dump(1000000000000 * simulation_time);
-#endif
-  simulation_time += TICKLEN;
 }
 
 int main(int argc, char **argv) {
@@ -694,7 +708,7 @@ int main(int argc, char **argv) {
   
   tb->reset = 1;
   tb->memory_config = 0x00; // 0x00=512k, 0x01=1M, 0x0f=3.5M
-  tb->fastram_config = 0;   // 0=none, 1=2MB, 2=4MB
+  tb->fastram_config = 2;   // 0=none, 1=2MB, 2=4MB
   tb->floppy_config = 0x5;  // 1 = one fast drive, 5 = two fast drives
   tb->ide_config = 0x0;     // 0=no drive, 7=two drives
 

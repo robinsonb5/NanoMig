@@ -9,7 +9,7 @@
 
 #ifdef SD_CARD_CPP
 const char *file_image[8] = {
-  "./df0.adf",           // DF0
+  NULL,                  // DF0
   NULL,                  // DF1
   NULL,                  // DF2
   NULL,                  // DH3
@@ -31,6 +31,9 @@ const char *file_image[8] = {
 void sd_init(void);
 void sd_handle(void);
 void sd_get_sector(int drive, int lba, uint8_t *data);
+
+void hexdump(void *data, int size);
+void hexdiff(void *data, void *cmp, int size);
 
 // clocks the SD card claims to be busy before read data is returned
 #define READ_BUSY_COUNT 1000
