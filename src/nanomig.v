@@ -86,7 +86,7 @@ module nanomig (
    input         fastram_ready
 );
 `default_nettype none
-   
+
 wire cpu_rst;
 wire [15:0] ram_din;
 wire uart_cts;
@@ -226,7 +226,7 @@ wire	    ram_lds;
 wire	    ram_uds;
    
 // ram_ready finally is the clkena for the tg68k
-reg	    ram_ready;
+wire	    ram_ready;
 
 // generate a ram_cs at the begin of the bus cycle, so the ram cycle starts
 // at the right time
@@ -240,22 +240,9 @@ always @(negedge clk_sys)
 reg	    ram_cs_triggerD;
 always @(posedge clk_sys)
   ram_cs_triggerD <= ram_cs_trigger;   
-   
-// neg/clk7
-reg frr_d=1'b0;
-always @(posedge clk_sys) begin
-//   if(!cpu_rst)
-   ram_ready<=1'b0;
-//   else if(!ram_sel)
-//      ram_ready<=1'b0;
-//   else if(fastram_ready!=frr_d;
-   if(clk7_en) begin
-     if(fastram_ready!=frr_d)
-        ram_ready<=1'b1;
-     frr_d <= fastram_ready;
-   end
-end
-   
+  
+assign ram_ready = fastram_ready;  
+ 
 cpu_wrapper cpu_wrapper
 (
 	.reset        (cpu_rst         ),
@@ -303,16 +290,9 @@ cpu_wrapper cpu_wrapper
 	.cacr         (cpu_cacr        ),
 	.nmi_addr     (cpu_nmi_addr    )
 );
-   
-reg ram_sel_d;
-reg ram_ready_d;
-always @(posedge clk_sys) begin
-	ram_ready_d <= ram_ready;
-   if( clk7n_en) begin
-		if(ram_sel && !ram_ready_d)
-			fastram_sel <= 1'b1;
-	end
-   if( fastram_ready != frr_d ) fastram_sel <= 1'b0;   
+
+always @(*) begin
+	fastram_sel <= ram_sel && (cpu_state != 2'b01);
 end
 
 assign fastram_addr = ram_addr;

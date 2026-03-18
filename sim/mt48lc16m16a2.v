@@ -47,7 +47,8 @@
 //`define MT48LC32M16   // 64MB part
 //`define MT48LC16M16   // 32MB part
 //`define PRELOAD_RAM
-`define MT48LC4M16    //  8MB part
+//`define MT48LC4M16    //  8MB part
+`define MTCUSTOM	// Custom 4MB part, to simulate half of the 32-bit wide RAM in Tang Nano 20k
 
 module mt48lc16m16a2 (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
 
@@ -71,6 +72,12 @@ module mt48lc16m16a2 (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
    parameter addr_bits =      12;
    parameter col_bits  =       8;
    parameter mem_sizes =   1048576;
+`endif
+
+`ifdef MTCUSTOM
+   parameter addr_bits =      11;
+   parameter col_bits  =       8;
+   parameter mem_sizes =   524288;
 `endif
    
    // Common to all parts
@@ -205,7 +212,7 @@ module mt48lc16m16a2 (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
     time  RP_chk0, RP_chk1, RP_chk2, RP_chk3;
 
 	// Refresh timing
-	parameter refresh_interval = 7812; // 64ms / 8192 refreshes per 64ms  
+	parameter refresh_interval = 64000000 / (2**addr_bits); // 7812; // 64ms / 8192 refreshes per 64ms  
 	integer refresh_target = 0 ;
 	integer refresh_count = 0 ;
 

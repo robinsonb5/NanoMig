@@ -32,14 +32,14 @@ start:
 	move.b	#3,$bfe201	; LED and OVL are outputs
 	move.b	#2,$bfe001	; switch rom overlay off
 
-	move.w  $da2000,d0  ; Read from IDE
-	move.w  $da2004,d0  ; Read from IDE
-	move.w  $da2008,d0  ; Read from IDE
-	move.w  $da200c,d0  ; Read from IDE
-	move.w  $da2010,d0  ; Read from IDE
-	move.w  $da2014,d0  ; Read from IDE
-	move.w  $da2018,d0  ; Read from IDE
-	move.w  $da201c,d0  ; Read from IDE
+;	move.w  $da2000,d0  ; Read from IDE
+;	move.w  $da2004,d0  ; Read from IDE
+;	move.w  $da2008,d0  ; Read from IDE
+;	move.w  $da200c,d0  ; Read from IDE
+;	move.w  $da2010,d0  ; Read from IDE
+;	move.w  $da2014,d0  ; Read from IDE
+;	move.w  $da2018,d0  ; Read from IDE
+;	move.w  $da201c,d0  ; Read from IDE
 
 	; configure Toccata board
 	move.w	#$e9e9,$e80048
@@ -49,7 +49,9 @@ start:
 	; Configure ZII fast ram
 	move.w	#$2020,$e80048
 
-	lea	$200000,a0
+	move.w	$200000,d0
+	lea	$200100,a0
+;	move.w	(a0),d0
 	move.l	#$ffeeddcc,(a0)+
 	move.l	#$12345678,(a0)+
 	move.l	-(a0),d0

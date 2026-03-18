@@ -12,7 +12,7 @@ FX68K_FILES= fx68k.sv fx68kAlu.sv uaddrPla.sv fx68k_MicroRom.v fx68k_NanoRom.v
 
 # Minimig-AGA
 MINIMIG_DIR=../src/minimig-aga
-MINIMIG_FILES=../nanomig.v amiga_clk.v cpu_wrapper.v minimig.v 
+MINIMIG_FILES=../nanomig.v ../misc/sdram.sv ../cache.v amiga_clk.v cpu_wrapper.v minimig.v 
 MINIMIG_FILES+=ciaa.v ciab.v cia_int.v cia_timera.v cia_timerb.v cia_timerd.v 
 MINIMIG_FILES+=paula.v paula_uart.v paula_audio_channel.v paula_audio_mixer.v paula_audio.v paula_audio_volume.v paula_floppy_fifo.v paula_floppy.v paula_intcontroller.v
 MINIMIG_FILES+=agnus.v agnus_audiodma.v agnus_blitter_adrgen.v agnus_blitter_minterm.v agnus_diskdma.v agnus_beamcounter.v agnus_blitter_barrelshifter.v agnus_blitter.v agnus_refresh.v agnus_bitplanedma.v agnus_blitter_fill.v agnus_copper.v agnus_spritedma.v

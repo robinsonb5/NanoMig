@@ -47,7 +47,7 @@ module sdram #(parameter DATA_WIDTH=16, RASCAS_DELAY=1, RAS_WIDTH=13, CAS_WIDTH=
 	input		  reset_n, // init signal after FPGA config to initialize RAM
 
 	output		  ready,   // ram is ready and has been initialized
-        input		  sync,
+	input		  sync,
 	input		  refresh, // chipset requests a refresh cycle
 	input [15:0]	  din,     // data input from chipset/cpu
 	output reg [15:0] dout,
@@ -57,16 +57,16 @@ module sdram #(parameter DATA_WIDTH=16, RASCAS_DELAY=1, RAS_WIDTH=13, CAS_WIDTH=
 	input		  we,      // cpu/chipset requests write
 
 	input [15:0]	  p2_din,  // data input from chipset/cpu
-	output reg [15:0] p2_dout,
+	output reg [DATA_WIDTH-1:0] p2_dout,
 	input [21:0]	  p2_addr, // 22 bit word address
 	input [1:0]	  p2_ds,   // upper/lower data strobe
 	input		  p2_cs,   // cpu/chipset requests read/wrie
 	input		  p2_we,   // cpu/chipset requests write
-	output reg        p2_ack
+	output reg        p2_fill
 );
 `default_nettype none
 
-localparam BURST_LENGTH   = 3'b000; // 000=1, 001=2, 010=4, 011=8
+localparam BURST_LENGTH   = 3'b010; // 000=1, 001=2, 010=4, 011=8
 localparam ACCESS_TYPE    = 1'b0;   // 0=sequential, 1=interleaved
 localparam CAS_LATENCY    = 3'd2;   // 2/3 allowed
 localparam OP_MODE        = 2'b00;  // only 00 (standard operation) allowed
@@ -100,7 +100,8 @@ wire [31:0] p2_addr32 = { {(10+ADDR_BASE){1'b0}}, p2_addr[21:ADDR_BASE]};
 //   CAS =   addr32[8:0] =   addr[8:0]
 //   RAS =  addr32[21:9] =  addr[21:9]
 //   BA  = addr32[23:22] =       2'b00
-   
+
+
 // ---------------------------------------------------------------------
 // ------------------------ cycle state machine ------------------------
 // ---------------------------------------------------------------------
@@ -109,7 +110,7 @@ wire [31:0] p2_addr32 = { {(10+ADDR_BASE){1'b0}}, p2_addr[21:ADDR_BASE]};
 localparam STATE_IDLE      = 4'd0;   // first state in cycle
 localparam STATE_CMD_CONT  = STATE_IDLE + RASCAS_DELAY; // command can be continued
 localparam STATE_READ      = STATE_CMD_CONT + CAS_LATENCY + 4'd1;
-localparam STATE_LAST      = 4'd6;  // last state in cycle
+localparam STATE_LAST      = 4'd11;  // last state in cycle
    
 // Cycle pattern:
 // 0 - STATE_IDLE - wait for 7MHz clock, perform RAS if CS is asserted
@@ -117,10 +118,10 @@ localparam STATE_LAST      = 4'd6;  // last state in cycle
 // 2 - perform CAS                           Drive bus
 // 3 - 
 // 4 -            - (chip launches data)
-// 5 - STATE_READ - latch data
-// 6 -
-// 7 -
-// 8 -
+// 5 - STATE_READ - latch data (word 1) \
+// 6 -                         (word 2) |
+// 7 -                         (word 3) |
+// 8 -                         (word 4) /
 // 9 -
 // 10 -
 // 11 - STATE LAST - return to IDLE state
@@ -171,6 +172,39 @@ localparam PORTIDLE=2'b11;
 reg [1:0] sdram_port;
 localparam SYNCD = 2;
 
+//`define TRACK_REFRESH
+
+// Check refresh timing:
+// Should be unnecessary as long as the core requests sufficient refreshes
+// via the refresh signal.
+
+`ifdef TRACK_REFRESH
+// Every row must be visited once every 64ms
+localparam rows = 2**RAS_WIDTH;
+
+// ~136000 refreshes per second for chips with 13 row bits, half that for chips with 12 row bits
+localparam refreshes_per_second = (1000 * rows) / 64;
+
+// Clock speed: 85MHz => ~622 ticks per refresh for 13 row bits, half that for 12 row bits.
+localparam ticks_per_refresh = 85000000 / refreshes_per_second;
+
+reg [10:0] refreshctr;
+reg refresh_pending;
+
+always @(posedge clk) begin
+	refreshctr <= refreshctr - 1;
+	
+	if(sd_cmd == CMD_AUTO_REFRESH)
+		refresh_pending <= 1'b0;
+
+	if(!refreshctr) begin
+		refreshctr <= ticks_per_refresh;
+		refresh_pending <= 1'b1;
+	end
+end
+`endif
+
+
 always @(posedge clk) begin
    reg [SYNCD:0] syncD;   
    sd_cmd <= CMD_NOP;  // default: idle
@@ -179,8 +213,7 @@ always @(posedge clk) begin
    // init state machines runs once reset ends
    if(!reset_n) begin
       init_state <= 5'h1f;
-      state <= STATE_IDLE;      
-      p2_ack <= 1'b0;
+      state <= STATE_IDLE;
    end else begin
       if(init_state != 0)
         state <= state + 3'd1;
@@ -204,7 +237,6 @@ always @(posedge clk) begin
 	    sd_cmd <= CMD_LOAD_MODE;
 	    sd_addr <= MODE;
 	 end
-	 p2_ack <= 1'b0;	 
       end
    end else begin
       // add a delay tp the chipselect which in fact is just the beginning
@@ -236,6 +268,11 @@ always @(posedge clk) begin
 		 sd_cmd <= CMD_AUTO_REFRESH;
 		 sdram_port <= PORTREFRESH;
 	      end
+`ifdef TRACK_REFRESH
+		end else if(refresh_pending) begin
+		 sd_cmd <= CMD_AUTO_REFRESH;
+		 sdram_port <= PORTREFRESH;
+`endif
 	   end else if(p2_cs) begin
 	      sdram_port <= PORT2;
 	      sd_cmd <= CMD_ACTIVE;
@@ -286,25 +323,31 @@ always @(posedge clk) begin
          end
 	 if(state == STATE_READ) begin
 	    case(sdram_port)
-	      PORTREFRESH:
-		sd_cmd <= CMD_AUTO_REFRESH;
 	      PORT1 : 
 		 // dout <= sd_data;
 	         dout <= addr[0]?sd_data[15:0]:sd_data[DATA_WIDTH-1:DATA_WIDTH-16];
 	      PORT2 : begin
-		 // p2_dout <= sd_data;
-		 p2_dout <= p2_addr[0]?sd_data[15:0]:sd_data[DATA_WIDTH-1:DATA_WIDTH-16];
-		 p2_ack <= ~p2_ack;
+	        p2_dout <= sd_data;
+	        p2_fill <= 1'b1;
 	      end
 	      default:
 		;
 	    endcase
 	 end
 	 
+	 if((state == STATE_READ+1) && (sdram_port == PORTREFRESH))
+		sd_cmd <= CMD_AUTO_REFRESH;
+
+	 if(state == STATE_READ+4)
+	 	p2_fill <= 1'b0;
+
 	 if(state == STATE_LAST)
 	   state <= STATE_IDLE;	 
       end
    end
+
+	p2_dout <= sd_data;
+
 end
    
 endmodule

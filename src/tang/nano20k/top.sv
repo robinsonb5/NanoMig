@@ -8,7 +8,7 @@
    or a single copy of e.g. a 512k diag rom
      openFPGALoader --external-flash -o 0x400000 DiagROM
 */
- 
+
 module top(
   input			clk,
 
@@ -134,7 +134,7 @@ wire [2:0] osd_volume;          // Mute=0, 1=25%, 2=50%, 3=75%, 4=100%
 // generate a reset for some time after rom has been initialized
 reg [15:0] reset_cnt;
 always @(negedge clk_28m) begin
-    if(!pll_lock || !rom_done || reset || osd_reset || kbd_reset)
+    if(!pll_lock || !rom_done || reset || osd_reset || kbd_reset || jtag_reset_n)
         reset_cnt <= 16'hffff;
     else if(reset_cnt != 0)
         reset_cnt = reset_cnt - 16'd1;
@@ -465,7 +465,7 @@ wire [2:0] fastram_config = { 1'b0, osd_fastmem };
 wire [3:0] floppy_config = { osd_floppy_drives, osd_floppy_wrprot, osd_floppy_turbo };
 wire [3:0] video_config = { osd_video_filter, osd_video_scanlines };   
 wire [5:0] ide_config = { 5'b10000, osd_ide_enable };   
-   
+
 nanomig nanomig
 (
  .clk_sys(clk_28m),
@@ -652,8 +652,14 @@ wire		sdram_we      = rom_done?sdram_rw:flash_ram_write;
 
 assign O_sdram_clk = clk_85m_shifted;   
 assign O_sdram_cke = 1'b1;  // clock enable
-   
-sdram #(.DATA_WIDTH(32), .RASCAS_DELAY(2), .RAS_WIDTH(11), .CAS_WIDTH(8) ) sdram (
+ 
+wire [31:0] fastram_from_sdram;
+wire fastram_fill;
+reg fastram_req;
+
+localparam sdram_width = 32;
+
+sdram #(.DATA_WIDTH(sdram_width), .RASCAS_DELAY(2), .RAS_WIDTH(11), .CAS_WIDTH(8) ) sdram (
 	.sd_data    ( IO_sdram_dq   ), // 32 bit bidirectional data bus
 	.sd_addr    ( O_sdram_addr  ), // 11 bit multiplexed address bus
 	.sd_dqm     ( O_sdram_dqm   ), // two byte masks
@@ -679,15 +685,83 @@ sdram #(.DATA_WIDTH(32), .RASCAS_DELAY(2), .RAS_WIDTH(11), .CAS_WIDTH(8) ) sdram
 	.we         ( sdram_we      ),  // cpu/chipset requests write
 
 	.p2_din        ( fastram_din     ), // data input from chipset/cpu
-	.p2_dout       ( fastram_dout    ),
+	.p2_dout       ( fastram_from_sdram ),
 	.p2_addr       ( fastram_addr    ), // 22 bit word address
 	.p2_ds         ( fastram_be      ), // upper/lower data strobe
-	.p2_cs         ( fastram_sel     ), // cpu/chipset requests read/wrie
+	.p2_cs         ( fastram_req     ), // cpu/chipset requests read/wrie
 	.p2_we         ( fastram_wr      ),  // cpu/chipset requests write
-	.p2_ack        ( fastram_ready   )
+	.p2_fill       ( fastram_fill   )
 );
 
-// run the flash a 85MHz. This is only used at power-up to copy kickstart
+wire [31:0] cache_q;
+wire cache_ready;
+
+wire dbg_tag_valid;
+wire dbg_tag_stable;
+
+cache #(
+	.sdramwidth_log2(2),
+	.burstlength_log2(2)
+) cache_inst (
+	.clk85(clk_85m),
+	.clk28(clk_28m),
+	.reset_n(!reset),
+	.ready(cache_ready),
+	
+	.cpu_addr(fastram_addr),
+	.cpu_req(fastram_sel),
+	.cpu_ack(fastram_ready),
+	.cpu_q(cache_q),
+	.cpu_we(fastram_wr),
+
+	.sd_req(fastram_req),
+	.sd_d(fastram_from_sdram),
+	.sd_fill(fastram_fill),
+	.dbg_tag_stable(dbg_tag_stable),
+	.dbg_tag_valid(dbg_tag_valid)
+);
+
+assign fastram_dout = fastram_addr[1] ? cache_q[15:0] : cache_q[31:16];
+
+localparam capture_width=65;
+wire [capture_width-1:0] capture_d;
+wire [capture_width-1:0] capture_q /* synthesis syn_keep */;
+wire capture_upd;
+
+assign capture_d[23:0] = {fastram_addr,1'b0};
+assign capture_d[39:24] = fastram_dout;
+assign capture_d[55:40] = fastram_din;
+assign capture_d[56] = fastram_wr;
+assign capture_d[57] = fastram_lds;
+assign capture_d[58] = fastram_uds;
+assign capture_d[59] = fastram_ready;
+assign capture_d[60] = fastram_sel;
+assign capture_d[61] = fastram_fill;
+assign capture_d[62] = dbg_tag_stable;
+assign capture_d[63] = fastram_req;
+assign capture_d[64] = dbg_tag_valid;
+
+reg jtag_reset_n;
+
+jcapture #(
+	.capturewidth(capture_width),
+	.capturedepth(12),
+	.triggerwidth(capture_width)
+) jcapture_inst (
+	.clk(clk_85m),
+	.reset_n(pll_lock),
+	.stb(1'b1),
+	.d(capture_d),
+	.q(capture_q),
+	.update(capture_upd)
+);
+
+always @(posedge clk_85m) begin
+	if(capture_upd)
+		jtag_reset_n <= ~capture_q[0];
+end
+
+// run the flash at 85MHz. This is only used at power-up to copy kickstart
 // from flash to sdram
 assign mspi_clk = clk_85m_shifted;   
 flash flash (

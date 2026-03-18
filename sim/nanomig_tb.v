@@ -114,11 +114,11 @@ wire fastram_sel;
 wire [22:1] fastram_addr;
 wire fastram_lds;
 wire fastram_uds;
-wire [15:0] fastram_dout;
+reg [15:0]  fastram_dout;
 wire [15:0] fastram_din;
 wire [1:0] fastram_be;
 wire fastram_wr;
-reg fastram_ready;
+wire fastram_ready;
 
 nanomig nanomig (
 		 // system pins
@@ -203,7 +203,7 @@ wire [15:0] sdram_dout    = 16'b0;
 wire [1:0]  sdram_be      = 2'b11;
 wire		sdram_we      = 1'b0;
    
-wire O_sdram_cke;
+wire O_sdram_cke=1'b1;
 wire [31:0] IO_sdram_dq;
 wire [11:0] O_sdram_addr;
 wire [3:0] O_sdram_dqm;
@@ -213,9 +213,13 @@ wire O_sdram_wen_n;
 wire O_sdram_ras_n;
 wire O_sdram_cas_n;
 
+wire [31:0] fastram_from_sdram;
+wire fastram_fill;
+reg fastram_req;
 
-sdram sdram (
-	.sd_cke     ( O_sdram_cke   ), // clock enable
+localparam sdram_width=32;
+
+sdram #(.DATA_WIDTH(sdram_width), .RASCAS_DELAY(2), .RAS_WIDTH(11), .CAS_WIDTH(8) ) sdram (
 	.sd_data    ( IO_sdram_dq   ), // 32 bit bidirectional data bus
 	.sd_addr    ( O_sdram_addr  ), // 11 bit multiplexed address bus
 	.sd_dqm     ( O_sdram_dqm   ), // two byte masks
@@ -241,13 +245,35 @@ sdram sdram (
 	.we         ( sdram_we      ), // cpu/chipset requests write
 
 	.p2_din        ( fastram_din     ), // data input from chipset/cpu
-	.p2_dout       ( fastram_dout    ),
+	.p2_dout       ( fastram_from_sdram ),
 	.p2_addr       ( fastram_addr    ), // 22 bit word address
 	.p2_ds         ( fastram_be      ), // upper/lower data strobe
-	.p2_cs         ( fastram_sel     ), // cpu/chipset requests read/wrie
+	.p2_cs         ( fastram_req     ), // cpu/chipset requests read/wrie
 	.p2_we         ( fastram_wr      ),  // cpu/chipset requests write
-	.p2_ack        ( fastram_ready   )
+	.p2_fill       ( fastram_fill   )
 );
+
+wire [31:0] cache_q;
+wire cache_ready;
+
+cache #(.sdramwidth_log2(2)) cache_inst (
+	.clk85(clk_85),
+	.clk28(clk),
+	.reset_n(!reset),
+	.ready(cache_ready),
+	
+	.cpu_req(fastram_sel),
+	.cpu_addr(fastram_addr),
+	.cpu_q(cache_q),
+	.cpu_we(fastram_wr),
+	.cpu_ack(fastram_ready),
+	.sd_req(fastram_req),
+	.sd_d(fastram_from_sdram),
+	.sd_fill(fastram_fill)
+);
+
+assign fastram_dout = fastram_addr[1] ? cache_q[15:0] : cache_q[31:16];
+
 
 wire O_sdram_clk = clk_85;
 
