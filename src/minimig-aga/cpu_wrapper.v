@@ -142,9 +142,18 @@ assign fastchip_lds = lds_in;
 assign fastchip_uds = uds_in;
 assign fastchip_rnw = wr;
 
+// Register address decoding signals to reduce timing baggage on cpu_din
+reg ramsel_r;
+reg sel_autoconfig_r;
+
+always @(posedge clk) begin
+	ramsel_r <= ramsel;
+	sel_autoconfig_r <= sel_autoconfig;
+end
+
 reg  [31:0] cpu_addr;
 reg  [15:0] cpu_dout;
-wire [15:0] cpu_din = ramsel ? ramdat : fastchip_selack ? fastchip_dout : {sel_autoconfig ? autocfg_data : chip_data[15:12], chip_data[11:0]};
+wire [15:0] cpu_din = ramsel_r ? ramdat : fastchip_selack ? fastchip_dout : {sel_autoconfig_r ? autocfg_data : chip_data[15:12], chip_data[11:0]};
 reg         wr;
 reg         uds_in;
 reg         lds_in;
