@@ -172,7 +172,7 @@ localparam PORTIDLE=2'b11;
 reg [1:0] sdram_port;
 localparam SYNCD = 2;
 
-//`define TRACK_REFRESH
+`define TRACK_REFRESH
 
 // Check refresh timing:
 // Should be unnecessary as long as the core requests sufficient refreshes
